@@ -52,15 +52,23 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health():
+    error_detail = None
+    models = []
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.get(f"{settings.ollama_url}/api/tags")
-            ollama_ok = r.status_code == 200
-    except Exception:
+            r.raise_for_status()
+            ollama_ok = True
+            models = [m.get("name") for m in r.json().get("models", [])]
+    except Exception as e:
         ollama_ok = False
+        error_detail = str(e)
 
     return {
         "status": "ok",
         "ollama": "reachable" if ollama_ok else "unreachable",
+        "ollama_url": settings.ollama_url,
         "default_model": settings.default_model,
+        "loaded_models": models,
+        **({"ollama_error": error_detail} if error_detail else {}),
     }
