@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["ollama", "curl", "bash"]
+
+[start]
+cmd = "bash entrypoint.sh"
