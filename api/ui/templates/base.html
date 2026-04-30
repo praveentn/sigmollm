@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SigmoLLM{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' } } } }
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .sidebar-link { @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors; }
+    .sidebar-link.active { @apply bg-indigo-600 text-white; }
+    .sidebar-link:not(.active) { @apply text-gray-400 hover:bg-gray-700 hover:text-white; }
+  </style>
+</head>
+<body class="h-full bg-gray-950 text-gray-100" x-data="{ toast: null }"
+  x-on:show-toast.window="toast = $event.detail; setTimeout(() => toast = null, 3500)">
+
+  <div class="flex h-full">
+    <!-- Sidebar -->
+    <aside class="w-60 flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-800">
+      <div class="px-5 py-5 border-b border-gray-800">
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">⚡</span>
+          <div>
+            <p class="font-bold text-white text-lg leading-tight">SigmoLLM</p>
+            <p class="text-xs text-gray-500">Admin Console</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="flex-1 px-3 py-4 space-y-1">
+        <a href="/ui/" class="sidebar-link {% if active == 'dashboard' %}active{% endif %}">
+          <span>📊</span> Dashboard
+        </a>
+        <a href="/ui/keys" class="sidebar-link {% if active == 'keys' %}active{% endif %}">
+          <span>🔑</span> API Keys
+        </a>
+        <a href="/ui/usage" class="sidebar-link {% if active == 'usage' %}active{% endif %}">
+          <span>📈</span> Usage
+        </a>
+      </nav>
+
+      <div class="px-3 py-4 border-t border-gray-800">
+        <a href="/ui/logout"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-400 hover:bg-gray-800 transition-colors">
+          <span>🚪</span> Logout
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <header class="flex-shrink-0 px-8 py-4 border-b border-gray-800 bg-gray-900">
+        <h1 class="text-xl font-semibold text-white">{% block heading %}{% endblock %}</h1>
+      </header>
+
+      <main class="flex-1 overflow-auto px-8 py-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div x-cloak x-show="toast" x-transition
+       class="fixed bottom-6 right-6 z-50 max-w-sm rounded-xl shadow-xl px-5 py-3 text-sm font-medium"
+       :class="toast?.type === 'error' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'">
+    <span x-text="toast?.message"></span>
+  </div>
+
+  <script>
+    function showToast(message, type = 'success') {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: { message, type } }));
+    }
+    async function apiFetch(url, opts = {}) {
+      const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || 'Request failed');
+      }
+      return res.json();
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

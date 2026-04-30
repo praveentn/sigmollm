@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — SigmoLLM{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block content %}
+<div x-data="dashboard()" x-init="load()">
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
+    <template x-for="card in cards" :key="card.label">
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+        <p class="text-xs text-gray-500 uppercase tracking-wide font-medium" x-text="card.label"></p>
+        <p class="mt-2 text-3xl font-bold text-white" x-text="loading ? '…' : card.value"></p>
+        <p class="mt-1 text-xs" :class="card.sub ? 'text-gray-400' : 'invisible'" x-text="card.sub || '·'"></p>
+      </div>
+    </template>
+  </div>
+
+  <!-- Models + recent activity -->
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+    <!-- Loaded models -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-4">Loaded Models</h2>
+      <template x-if="!loading && models.length === 0">
+        <p class="text-gray-600 text-sm">No models loaded</p>
+      </template>
+      <ul class="space-y-2">
+        <template x-for="m in models" :key="m.name">
+          <li class="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+            <span class="text-sm text-white font-mono" x-text="m.name"></span>
+            <span class="text-xs text-gray-500" x-text="formatSize(m.size)"></span>
+          </li>
+        </template>
+      </ul>
+    </div>
+
+    <!-- Recent requests -->
+    <div class="xl:col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-5">
+      <h2 class="text-sm font-semibold text-gray-300 mb-4">Recent Requests</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-gray-500 border-b border-gray-800">
+              <th class="text-left pb-2 font-medium">Time</th>
+              <th class="text-left pb-2 font-medium">Key</th>
+              <th class="text-left pb-2 font-medium">Endpoint</th>
+              <th class="text-right pb-2 font-medium">Tokens</th>
+              <th class="text-right pb-2 font-medium">Latency</th>
+              <th class="text-right pb-2 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-800">
+            <template x-if="loading">
+              <tr><td colspan="6" class="py-4 text-center text-gray-600">Loading…</td></tr>
+            </template>
+            <template x-if="!loading && recentUsage.length === 0">
+              <tr><td colspan="6" class="py-4 text-center text-gray-600">No requests yet</td></tr>
+            </template>
+            <template x-for="r in recentUsage" :key="r.id">
+              <tr class="hover:bg-gray-800/50">
+                <td class="py-2 text-gray-400" x-text="fmtTime(r.created_at)"></td>
+                <td class="py-2 text-gray-300 font-mono" x-text="r.key_name"></td>
+                <td class="py-2 text-gray-400 font-mono" x-text="r.endpoint.replace('/api/', '')"></td>
+                <td class="py-2 text-right text-gray-300" x-text="r.prompt_tokens + r.completion_tokens"></td>
+                <td class="py-2 text-right text-gray-400" x-text="r.latency_ms + 'ms'"></td>
+                <td class="py-2 text-right">
+                  <span :class="r.success ? 'text-green-400' : 'text-red-400'" x-text="r.success ? '✓' : '✗'"></span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dashboard() {
+  return {
+    loading: true,
+    cards: [
+      { label: 'Total Keys', value: 0, sub: '' },
+      { label: 'Active Keys', value: 0, sub: '' },
+      { label: 'Requests Today', value: 0, sub: '' },
+      { label: 'Total Requests', value: 0, sub: '' },
+    ],
+    models: [],
+    recentUsage: [],
+
+    async load() {
+      try {
+        const [stats, usage] = await Promise.all([
+          apiFetch('/api/admin/stats'),
+          apiFetch('/api/admin/usage?days=1&limit=20'),
+        ]);
+        this.cards[0].value = stats.total_keys;
+        this.cards[1].value = stats.active_keys;
+        this.cards[2].value = stats.requests_today;
+        this.cards[3].value = stats.requests_total;
+        this.models = stats.models || [];
+        this.recentUsage = usage;
+      } catch (e) {
+        showToast(e.message, 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    formatSize(bytes) {
+      if (!bytes) return '';
+      const gb = bytes / 1e9;
+      return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / 1e6).toFixed(0) + ' MB';
+    },
+
+    fmtTime(iso) {
+      return new Date(iso).toLocaleTimeString();
+    },
+  };
+}
+</script>
+{% endblock %}

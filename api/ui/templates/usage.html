@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Usage — SigmoLLM{% endblock %}
+{% block heading %}Usage{% endblock %}
+
+{% block content %}
+<div x-data="usagePage()" x-init="load()">
+
+  <!-- Filters -->
+  <div class="flex flex-wrap items-center gap-3 mb-6">
+    <select x-model="filters.days" @change="load()"
+            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="1">Last 24h</option>
+      <option value="7" selected>Last 7 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+    </select>
+
+    <select x-model="filters.api_key_id" @change="load()"
+            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <option value="">All Keys</option>
+      <template x-for="k in allKeys" :key="k.id">
+        <option :value="k.id" x-text="k.name"></option>
+      </template>
+    </select>
+
+    <button @click="load()" class="px-4 py-2 text-sm rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:text-white transition-colors">
+      ↻ Refresh
+    </button>
+
+    <span class="ml-auto text-sm text-gray-500" x-text="rows.length + ' records'"></span>
+  </div>
+
+  <!-- Summary strip -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+      <p class="text-xs text-gray-500">Total Requests</p>
+      <p class="text-xl font-bold text-white mt-1" x-text="loading ? '…' : rows.length"></p>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+      <p class="text-xs text-gray-500">Success Rate</p>
+      <p class="text-xl font-bold mt-1"
+         :class="successRate >= 0.95 ? 'text-green-400' : successRate >= 0.8 ? 'text-yellow-400' : 'text-red-400'"
+         x-text="loading ? '…' : (successRate * 100).toFixed(1) + '%'"></p>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+      <p class="text-xs text-gray-500">Total Tokens</p>
+      <p class="text-xl font-bold text-white mt-1" x-text="loading ? '…' : fmtNum(totalTokens)"></p>
+    </div>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+      <p class="text-xs text-gray-500">Avg Latency</p>
+      <p class="text-xl font-bold text-white mt-1" x-text="loading ? '…' : avgLatency + 'ms'"></p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead class="border-b border-gray-800">
+          <tr class="text-gray-500 uppercase tracking-wide">
+            <th class="text-left px-5 py-3 font-medium">Time</th>
+            <th class="text-left px-5 py-3 font-medium">Key</th>
+            <th class="text-left px-5 py-3 font-medium">Endpoint</th>
+            <th class="text-left px-5 py-3 font-medium">Model</th>
+            <th class="text-right px-5 py-3 font-medium">In</th>
+            <th class="text-right px-5 py-3 font-medium">Out</th>
+            <th class="text-right px-5 py-3 font-medium">Latency</th>
+            <th class="text-right px-5 py-3 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800">
+          <template x-if="loading">
+            <tr><td colspan="8" class="px-5 py-8 text-center text-gray-600">Loading…</td></tr>
+          </template>
+          <template x-if="!loading && rows.length === 0">
+            <tr><td colspan="8" class="px-5 py-8 text-center text-gray-600">No usage in this period</td></tr>
+          </template>
+          <template x-for="r in rows" :key="r.id">
+            <tr class="hover:bg-gray-800/40">
+              <td class="px-5 py-2.5 text-gray-500" x-text="fmtDt(r.created_at)"></td>
+              <td class="px-5 py-2.5 text-gray-300 font-medium" x-text="r.key_name"></td>
+              <td class="px-5 py-2.5 text-gray-400 font-mono" x-text="r.endpoint.replace('/api/', '')"></td>
+              <td class="px-5 py-2.5 text-gray-400 font-mono" x-text="r.model"></td>
+              <td class="px-5 py-2.5 text-right text-gray-300" x-text="r.prompt_tokens"></td>
+              <td class="px-5 py-2.5 text-right text-gray-300" x-text="r.completion_tokens"></td>
+              <td class="px-5 py-2.5 text-right text-gray-400" x-text="r.latency_ms + 'ms'"></td>
+              <td class="px-5 py-2.5 text-right">
+                <span :class="r.success ? 'text-green-400' : 'text-red-400'"
+                      x-text="r.success ? '✓ OK' : '✗ Fail'"></span>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function usagePage() {
+  return {
+    loading: true,
+    rows: [],
+    allKeys: [],
+    filters: { days: 7, api_key_id: '' },
+
+    get successRate() {
+      if (!this.rows.length) return 1;
+      return this.rows.filter(r => r.success).length / this.rows.length;
+    },
+    get totalTokens() {
+      return this.rows.reduce((s, r) => s + r.prompt_tokens + r.completion_tokens, 0);
+    },
+    get avgLatency() {
+      if (!this.rows.length) return 0;
+      return Math.round(this.rows.reduce((s, r) => s + r.latency_ms, 0) / this.rows.length);
+    },
+
+    async load() {
+      this.loading = true;
+      try {
+        const params = new URLSearchParams({ days: this.filters.days, limit: 500 });
+        if (this.filters.api_key_id) params.set('api_key_id', this.filters.api_key_id);
+
+        const [usage, keys] = await Promise.all([
+          apiFetch('/api/admin/usage?' + params),
+          apiFetch('/api/admin/keys'),
+        ]);
+        this.rows = usage;
+        this.allKeys = keys;
+      } catch (e) {
+        showToast(e.message, 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    fmtDt(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+    },
+
+    fmtNum(n) {
+      if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+      return n.toString();
+    },
+  };
+}
+</script>
+{% endblock %}
