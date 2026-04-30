@@ -26,15 +26,16 @@ def _redirect_login() -> RedirectResponse:
 async def login_page(request: Request):
     if _is_admin(request):
         return RedirectResponse(url="/ui/", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 
 @router.post("/login")
 async def login(request: Request, password: str = Form(...)):
     if password != settings.admin_password:
         return templates.TemplateResponse(
+            request,
             "login.html",
-            {"request": request, "error": "Invalid password"},
+            {"error": "Invalid password"},
             status_code=401,
         )
     token = create_admin_token()
@@ -60,18 +61,18 @@ async def logout():
 async def dashboard(request: Request):
     if not _is_admin(request):
         return _redirect_login()
-    return templates.TemplateResponse("dashboard.html", {"request": request, "active": "dashboard"})
+    return templates.TemplateResponse(request, "dashboard.html", {"active": "dashboard"})
 
 
 @router.get("/keys", response_class=HTMLResponse)
 async def keys_page(request: Request):
     if not _is_admin(request):
         return _redirect_login()
-    return templates.TemplateResponse("keys.html", {"request": request, "active": "keys"})
+    return templates.TemplateResponse(request, "keys.html", {"active": "keys"})
 
 
 @router.get("/usage", response_class=HTMLResponse)
 async def usage_page(request: Request):
     if not _is_admin(request):
         return _redirect_login()
-    return templates.TemplateResponse("usage.html", {"request": request, "active": "usage"})
+    return templates.TemplateResponse(request, "usage.html", {"active": "usage"})
