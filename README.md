@@ -1,0 +1,2 @@
+# sigmollm
+ollama serve
