@@ -1,26 +1,29 @@
 #!/bin/bash
 set -e
 
-export OLLAMA_MODELS="${OLLAMA_MODELS:-/models}"
-MODEL="${DEFAULT_MODEL:-gemma4:e2b}"
+MODEL="${DEFAULT_MODEL:-gemma:2b}"
 
-echo "Starting Ollama (models dir: $OLLAMA_MODELS)…"
+echo "==> Starting Ollama serve (models dir: $OLLAMA_MODELS)"
 ollama serve &
 OLLAMA_PID=$!
 
-# Wait until Ollama is ready
+# Wait until Ollama's HTTP API is accepting requests
+echo "==> Waiting for Ollama API to be ready..."
 until curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; do
-  sleep 1
+    sleep 1
 done
-echo "Ollama ready"
+echo "==> Ollama API is ready"
 
-# Pull model only if not already present
-if ollama list 2>/dev/null | grep -q "^${MODEL}"; then
-  echo "Model ${MODEL} already present — skipping pull"
+# Pull model only if it's not already in the volume
+if ollama list 2>/dev/null | grep -q "${MODEL}"; then
+    echo "==> Model '${MODEL}' already present in /models — skipping pull"
 else
-  echo "Pulling model: ${MODEL}"
-  ollama pull "${MODEL}"
-  echo "Model ${MODEL} pulled successfully"
+    echo "==> Pulling model '${MODEL}' into /models (this may take a few minutes on first boot)..."
+    ollama pull "${MODEL}"
+    echo "==> Model '${MODEL}' ready"
 fi
 
+echo "==> Ollama is serving '${MODEL}' on port 11434"
+
+# Hand control back to the serve process so the container stays alive
 wait $OLLAMA_PID

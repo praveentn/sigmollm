@@ -1,6 +1,10 @@
+[build]
+  builder = "DOCKERFILE"
+  dockerfilePath = "Dockerfile"
+
 [deploy]
-  startCommand = "bash entrypoint.sh"
   restartPolicyType = "ON_FAILURE"
   restartPolicyMaxRetries = 3
+  # Health check on /api/tags — passes once Ollama is serving (before model pull completes)
   healthcheckPath = "/api/tags"
   healthcheckTimeout = 60

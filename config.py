@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/sigmollm"
 
     ollama_url: str = "http://localhost:11434"
-    default_model: str = "gemma4:e2b"
+    default_model: str = "gemma:2b"
 
     default_rpm: int = 60
     default_rpd: int = 1000
