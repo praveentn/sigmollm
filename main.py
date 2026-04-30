@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
             await client.get(f"{settings.ollama_url}/api/tags")
         print(f"✓ Connected to Ollama at {settings.ollama_url}")
     except Exception as e:
-        print(f"⚠ Ollama not reachable at {settings.ollama_url}: {e}")
+        print(f"⚠ Ollama not reachable at {settings.ollama_url}: {type(e).__name__}: {e}")
 
     yield
 
